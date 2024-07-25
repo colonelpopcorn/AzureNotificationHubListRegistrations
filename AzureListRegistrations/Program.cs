@@ -36,11 +36,11 @@ while (!string.IsNullOrWhiteSpace(continuationToken))
 }
 
 var executablePath = AppDomain.CurrentDomain.BaseDirectory;
-var currentTimeStamp = DateTime.Now.ToShortDateString();
-var filePathDir = Path.Join(executablePath, "../../../data");
+var currentTimeStamp = DateTime.Now.ToString("yyyy_MM_dd");
+var filePathDir = Path.Join(executablePath, "../../../../data");
 var filePath = Path.Join(filePathDir, $"/{currentTimeStamp}_registrations.json");
 
-Directory.CreateDirectory(filePath);
+Directory.CreateDirectory(filePathDir);
 
 using (var file = File.Create(filePath)) {
     file.Write(
@@ -55,7 +55,7 @@ using (var file = File.Create(filePath)) {
 
 Console.WriteLine($"Wrote {allRegistrations.Count} registrations to {filePath}");
 
-// var testStr = "This is a test notification from colonelpopcorn/AzureNotificationHubListRegistrations, you may ignore it";
+// var testStr = "This is a test notification`from colonelpopcorn/AzureNotificationHubListRegistrations, you may ignore it";
 // var androidTempl = "{ \"message\": { \"notification\": { \"body\" : \"" + testStr + "\"} } }";
 // var appleTempl = "{\"aps\":{\"alert\":\"" + testStr + "\"}}";
 
