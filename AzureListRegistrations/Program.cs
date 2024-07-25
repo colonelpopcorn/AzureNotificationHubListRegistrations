@@ -8,7 +8,7 @@ using Helpers;
 var httpClientHandler = new HttpClientHandler();
 httpClientHandler.ServerCertificateCustomValidationCallback += (_, cert, _, sslPolicyErrors) =>
 {
-    return sslPolicyErrors == SslPolicyErrors.None || new string[] { "CN=Cisco Umbrella Secondary SubCA atl1-SG, O=Cisco","O=Cisco, CN=Cisco Umbrella Secondary SubCA atl1-SG" }.Contains(cert?.Issuer);
+    return sslPolicyErrors == SslPolicyErrors.None || new string[] { "CN=Cisco Umbrella Secondary SubCA atl1-SG, O=Cisco", "O=Cisco, CN=Cisco Umbrella Secondary SubCA atl1-SG" }.Contains(cert?.Issuer);
 };
 var httpClient = new HttpClient(httpClientHandler);
 var notificationHubSettings = new NotificationHubSettings
@@ -17,20 +17,29 @@ var notificationHubSettings = new NotificationHubSettings
 };
 
 var helper = new Helper();
-if (!(helper.VerifyArguments(args))) {
+if (!helper.VerifyArguments(args))
+{
     throw new Exception("Arguments are not valid!");
 }
 
 var client = new NotificationHubClient(args[0] as string, args[1] as string, notificationHubSettings);
 
 // TODO: Get tag from latest registration
-var registration = (await client
-    .GetAllRegistrationsAsync(1000))
-    // .Where(x => $"{x.ExpirationTime:yyyy-MM-dxdTHH:mm:ss.FFFFFFFK}" != "9999-12-31T23:59:59.9999999Z")
-    .OrderBy(x => x.ExpirationTime)
-    .First();
-
-Console.WriteLine(JsonSerializer.Serialize(registration, new JsonSerializerOptions {WriteIndented = true}).ToString());
+var registrations = await client.GetAllRegistrationsAsync(0);
+var continuationToken = registrations.ContinuationToken;
+var allRegistrations = new List<RegistrationDescription>(registrations);
+while (!string.IsNullOrWhiteSpace(continuationToken))
+{
+    var nextRegistrations = await client.GetAllRegistrationsAsync(continuationToken, 0);
+    allRegistrations.AddRange(nextRegistrations);
+    continuationToken = nextRegistrations.ContinuationToken;
+}
+Console.WriteLine(
+    JsonSerializer.Serialize(
+        allRegistrations.OrderBy(x => x.ExpirationTime),
+        new JsonSerializerOptions { WriteIndented = true }
+    ).ToString()
+);
 
 // var testStr = "This is a test notification from colonelpopcorn/AzureNotificationHubListRegistrations, you may ignore it";
 // var androidTempl = "{ \"message\": { \"notification\": { \"body\" : \"" + testStr + "\"} } }";
@@ -55,9 +64,12 @@ Console.WriteLine(JsonSerializer.Serialize(registration, new JsonSerializerOptio
 // {
 //     Console.WriteLine("Please provide a platform argument!");
 // }
-namespace Helpers {
-    public class Helper {
-        public bool VerifyArguments(string[] arguments) {
+namespace Helpers
+{
+    public class Helper
+    {
+        public bool VerifyArguments(string[] arguments)
+        {
             return arguments.Length >= 3;
         }
     }
