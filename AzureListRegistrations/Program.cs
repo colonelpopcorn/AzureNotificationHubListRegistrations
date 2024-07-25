@@ -34,12 +34,26 @@ while (!string.IsNullOrWhiteSpace(continuationToken))
     allRegistrations.AddRange(nextRegistrations);
     continuationToken = nextRegistrations.ContinuationToken;
 }
-Console.WriteLine(
-    JsonSerializer.Serialize(
-        allRegistrations.OrderBy(x => x.ExpirationTime),
-        new JsonSerializerOptions { WriteIndented = true }
-    ).ToString()
-);
+
+var executablePath = AppDomain.CurrentDomain.BaseDirectory;
+var currentTimeStamp = DateTime.Now.ToShortDateString();
+var filePathDir = Path.Join(executablePath, "../../../data");
+var filePath = Path.Join(filePathDir, $"/{currentTimeStamp}_registrations.json");
+
+Directory.CreateDirectory(filePath);
+
+using (var file = File.Create(filePath)) {
+    file.Write(
+        System.Text.Encoding.UTF8.GetBytes(
+            JsonSerializer.Serialize(
+                allRegistrations.OrderBy(x => x.ExpirationTime),
+                new JsonSerializerOptions() { WriteIndented = true}
+            )
+        )
+    );
+}
+
+Console.WriteLine($"Wrote {allRegistrations.Count} registrations to {filePath}");
 
 // var testStr = "This is a test notification from colonelpopcorn/AzureNotificationHubListRegistrations, you may ignore it";
 // var androidTempl = "{ \"message\": { \"notification\": { \"body\" : \"" + testStr + "\"} } }";
