@@ -5,6 +5,8 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Helpers;
 
+var JSON_SERIALIZER_OPTS = new JsonSerializerOptions { WriteIndented = true};
+
 var httpClientHandler = new HttpClientHandler();
 httpClientHandler.ServerCertificateCustomValidationCallback += (_, cert, _, sslPolicyErrors) =>
 {
@@ -42,12 +44,13 @@ var filePath = Path.Join(filePathDir, $"/{currentTimeStamp}_registrations.json")
 
 Directory.CreateDirectory(filePathDir);
 
-using (var file = File.Create(filePath)) {
+using (var file = File.Create(filePath))
+{
     file.Write(
         System.Text.Encoding.UTF8.GetBytes(
             JsonSerializer.Serialize(
                 allRegistrations.OrderBy(x => x.ExpirationTime),
-                new JsonSerializerOptions() { WriteIndented = true}
+                JSON_SERIALIZER_OPTS
             )
         )
     );
@@ -55,29 +58,47 @@ using (var file = File.Create(filePath)) {
 
 Console.WriteLine($"Wrote {allRegistrations.Count} registrations to {filePath}");
 
-// var testStr = "This is a test notification`from colonelpopcorn/AzureNotificationHubListRegistrations, you may ignore it";
-// var androidTempl = "{ \"message\": { \"notification\": { \"body\" : \"" + testStr + "\"} } }";
-// var appleTempl = "{\"aps\":{\"alert\":\"" + testStr + "\"}}";
+var testStr = "This is a test notification`from colonelpopcorn/AzureNotificationHubListRegistrations, you may ignore it";
+var androidTempl = "{ \"message\": { \"notification\": { \"body\" : \"" + testStr + "\"} } }";
+var appleTempl = "{\"aps\":{\"alert\":\"" + testStr + "\"}}";
 
-// if (args.Length >= 3)
-// {
-//     if (args[2] == "android")
-//     {
-//         await client.SendFcmV1NativeNotificationAsync(androidTempl);
-//     }
-//     else if (args[2] == "ios")
-//     {
-//         await client.SendAppleNativeNotificationAsync(appleTempl);
-//     }
-//     else
-//     {
-//         Console.WriteLine("No implementation found for " + args[2] + "!");
-//     }
-// }
-// else
-// {
-//     Console.WriteLine("Please provide a platform argument!");
-// }
+var tags = allRegistrations
+    .Where(registration => registration.Tags != null)
+    .SelectMany(descr => descr.Tags)
+    .Where(tagStr => tagStr.StartsWith("$InstallationId"))
+    .ToList();
+
+Console.WriteLine(JsonSerializer.Serialize(tags, JSON_SERIALIZER_OPTS));
+var res = "";
+while (true) {
+    Console.WriteLine($"Would you like to send test notifications to {tags.Count} devices? y/n");
+    res = Console.ReadLine();
+    if (res!.Equals("y", StringComparison.CurrentCultureIgnoreCase)) {
+        var tagResponses = tags.Select(async tag => {
+            var androidRes = await client.SendFcmV1NativeNotificationAsync(androidTempl, tag);
+            var appleRes = await client.SendAppleNativeNotificationAsync(appleTempl, tag);
+            return new { androidRes, appleRes };
+        });
+        var resultFilePath = Path.Join(filePathDir, $"/{currentTimeStamp}_test_sends.json");
+        using (var file = File.Create(resultFilePath))
+        {
+            file.Write(
+                System.Text.Encoding.UTF8.GetBytes(
+                    JsonSerializer.Serialize(
+                        tagResponses,
+                        JSON_SERIALIZER_OPTS
+                    )
+                )
+            );
+        }
+        Console.WriteLine($"Wrote send results to {resultFilePath}");
+        break;
+    } else if (res!.Equals("n", StringComparison.CurrentCultureIgnoreCase)) {
+        Console.WriteLine("Have a great day!");
+        break;
+    }
+}
+
 namespace Helpers
 {
     public class Helper
